@@ -4,7 +4,7 @@
 
 **Трек:** B (прикладной)  
 **Техники курса:** RAG, Agent, LLM-as-Judge, Structured Output, Pydantic-валидация  
-**Данные:** MOEX ISS API (открытый) + 15 новостей SmartLab
+**Данные:** MOEX ISS API (открытый) + 90 новостей по 9+ бумагам
 
 ---
 
@@ -29,11 +29,14 @@ cp .env.example .env
 # 3. Анализ 5 бумаг
 python code/pipeline.py
 
-# 4. Eval на 15 тестах
+# 4. Eval на 50+ тестах
 python eval.py
+
+# 5. Графики
+python code/charts.py
 ```
 
-Результаты появятся в `output/` и `output/eval/`.
+Результаты — в `output/`, `output/eval/`, графики — в `output/eval/charts/`.
 
 ---
 
@@ -45,20 +48,21 @@ project/
 ├── README.md
 ├── requirements.txt
 ├── .env.example              ← без токена
-├── eval.py                   ← 15 тестов, метрики, LLM-as-judge
+├── eval.py                   ← 56 тестов, метрики, LLM-as-judge
 ├── отчёт.md                  ← отчёт 5 разделов
 ├── code/
 │   ├── schema.py             ← Pydantic + field_validator'ы
 │   ├── moex_client.py        ← MOEX ISS API (агентский инструмент)
 │   ├── rag.py                ← RAG (embeddings / keyword fallback)
 │   ├── llm_client.py         ← JSON mode + max_retries (response_model)
-│   └── pipeline.py           ← агент: MOEX → RAG → LLM → hallu check
+│   ├── pipeline.py           ← агент: MOEX → RAG → LLM → hallu check
+│   └── charts.py             ← matplotlib-графики по eval
 ├── input/
-│   └── news/                 ← 15 новостей по 5 бумагам (JSON)
+│   └── news/                 ← 90 новостей по 9+ бумагам (JSON)
 ├── output/                   ← артефакты прогона
-│   ├── analysis_*.json       ← 5 анализов
+│   ├── analysis_*.json       ← анализы
 │   ├── pipeline_results.json ← сводка
-│   └── eval/                 ← eval_results.csv + .json + summary
+│   └── eval/                 ← eval_results.csv + .json + summary + charts/
 └── venv/
 ```
 
@@ -70,29 +74,34 @@ project/
 |---|---------|-----|
 | 1 | **RAG** | `rag.py` — sentence-transformers → эмбеддинги → retrieval. Fallback: keyword |
 | 2 | **Agent с инструментами** | `pipeline.py` — MOEX API (+ RAG + LLM) как инструменты |
-| 3 | **LLM-as-judge** | `pipeline.py.check_hallucinations()` + `eval.py.judge_eval()` |
+| 3 | **LLM-as-judge** | `pipeline.py.check_hallucinations()` + `eval.py.judge_eval()` — сверка и с MOEX, и с RAG-новостями |
 | 4 | **Structured output** | `schema.py` response_model + `llm_client.py` max_retries=3 |
 | 5 | **field_validator** | `schema.py` — 4 бизнес-инварианта + model_validator |
 
 ## Бумаги
 
-| Тикер | Компания | Сектор | Результат |
-|-------|----------|--------|-----------|
-| MAGN | ММК | Чёрная металлургия | BUY +10–12% |
-| RAGR | РусАгро | Агросектор | BUY +10–12% |
-| ALRS | Алроса | Добыча алмазов | BUY +5% |
-| GMKN | Норникель | Цветные металлы | BUY +5% |
-| SVCB | Совкомбанк | Банкинг | BUY/STRONG_BUY +15–20% |
+| Тикер | Компания | Сектор |
+|-------|----------|--------|
+| MAGN | ММК | Чёрная металлургия |
+| RAGR | РусАгро | Агросектор |
+| ALRS | Алроса | Добыча алмазов |
+| GMKN | Норникель | Цветные металлы |
+| SVCB | Совкомбанк | Банкинг |
+| GAZP | Газпром | Нефть и газ |
+| SBER | Сбербанк | Банкинг |
+| LKOH | Лукойл | Нефть и газ |
+| ROSN | Роснефть | Нефть и газ |
 
 ## Результаты eval
 
 | Метрика | Значение |
 |---------|----------|
-| Pass rate | 15/15 (100%) |
-| Avg correctness | 4.33 / 5.0 |
-| Avg tokens / run | 1 643 |
-| Общая стоимость | $0.022 |
-| Hallu pass | 15/15 (100%) |
-| Сценарии | Реальные исторические даты (19.06 / 05.06 / 18.05) |
+| Тестов | 56 (4 тикера × 14 еженедельных дат) |
+| Pass rate | 35/56 (62%) |
+| Avg correctness | 3.2 / 5.0 |
+| Avg tokens / run | 1 327 |
+| Общая стоимость | $0.064 |
+| Hallu pass | 40/56 (71%) |
+| Avg latency | 11.75 с |
 
-Подробности — в `output/eval/eval_results.csv` и `отчёт.md`.
+Подробности — в `output/eval/eval_results.csv`, графиках `output/eval/charts/` и `отчёт.md`.
