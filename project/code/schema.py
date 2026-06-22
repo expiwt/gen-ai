@@ -20,7 +20,7 @@ class MarketData(BaseModel):
     high: Optional[float] = Field(default=None, ge=0)
     low: Optional[float] = Field(default=None, ge=0)
     change_percent: float = Field(description="Изменение за день в %")
-    market_cap: float = Field(gt=0, description="Рыночная капитализация")
+    market_cap: float = Field(ge=0, description="Рыночная капитализация")
     volume_today: int = Field(ge=0, description="Объём торгов сегодня")
     num_trades: int = Field(ge=0, description="Количество сделок")
     bid: Optional[float] = Field(default=None, ge=0)

@@ -1,0 +1,10 @@
+{
+  "total_tests": 56,
+  "passed": 35,
+  "pass_rate": "35/56 (62%)",
+  "avg_correctness_score": 3.2,
+  "avg_tokens_per_run": 1327.0,
+  "total_cost_usd": 0.064,
+  "hallu_check_pass_rate": "40/56",
+  "avg_latency_sec": 11.75
+}

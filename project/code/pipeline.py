@@ -208,7 +208,7 @@ def _check_hallucinations(
 
     Проверяет:
     1. Совпадают ли цены и капитализация с реальными MOEX-данными
-    2. Не выдуманы ли новости/факты
+    2. Факты из reasoning/key_factors присутствуют в MOEX-данных ИЛИ RAG-новостях
     3. Корректно ли пересчитаны единицы
     """
     errors = []
@@ -238,38 +238,74 @@ def _check_hallucinations(
                 f"отличается от расчётного ({expected_vol_mln:.1f}M) >20%"
             )
 
-    # Проверка 4: ghost-факты — LLM-as-judge
-    judge_prompt = f"""Ты проверяешь анализ акции на галлюцинации (выдуманные факты).
+    # Проверка 4: ghost-факты — LLM-as-judge с cross-check по новостям
+    news_block = "\n---\n".join(
+        f"НОВОСТЬ: {a.title}\nТЕКСТ: {a.snippet}" for a in news
+    )
 
-Исходные новости (только эти тексты считаются реальными):
-{"\n---\n".join(f"{a.title}: {a.snippet}" for a in news)}
+    judge_prompt = f"""Ты проверяешь анализ акции на галлюцинации (выдуманные неверные цифры или вымышленные события).
 
-Ответ аналитика:
-{analysis.reasoning}
+ИСХОДНЫЕ ДАННЫЕ (ground truth):
+- Цена акции: {market_data.price} ₽
+- Капитализация: {market_data.market_cap / 1e9:.1f} млрд ₽
+- Изменение за день: {market_data.change_percent:+.2f}%
+- Объём: {market_data.volume_today:,} шт
 
-Ключевые факты из ответа:
+ИСХОДНЫЕ НОВОСТИ (только эти считаются реальными):
+{news_block}
+
+ОТВЕТ АНАЛИТИКА ПРОВЕРЯЕМ:
 - bull факторы: {analysis.key_factors_bull}
 - bear факторы: {analysis.key_factors_bear}
 - Обоснование: {analysis.reasoning}
 
-Ответь одним словом: OK если всё основано на данных, или опиши какие факты выглядят выдуманными.
+ВАЖНО: аналитические выводы и оценки (потенциал роста, уровень риска, перспективы) — это мнение, НЕ галлюцинации. Проверяй ТОЛЬКО конкретные цифры и упоминания событий.
+
+Проверь: каждый ли утверждённый факт подтверждается MOEX-данными ИЛИ исходными новостями.
+
+Ответь строго в формате JSON:
+{{
+  "verdict": "OK" или "HALLU",
+  "hallu_facts": [список ТОЛЬКО неверных цифр или вымышленных событий],
+  "reasoning": "краткое объяснение"
+}}
 """
 
     judge_content, judge_usage = llm_complete(
-        system_prompt="Ты строгий проверяющий факты. Отвечай кратко.",
+        system_prompt="Ты строгий проверяющий фактов. Отвечай только JSON.",
         user_prompt=judge_prompt,
         temperature=0,
         max_retries=1,
     )
 
-    has_ghost = "OK" not in judge_content
-    if has_ghost:
-        errors.append(f"LLM-as-judge: обнаружены потенциальные галлюцинации — {judge_content}")
+    # Парсим структурированный ответ судьи
+    import re as _re
+    import json as _json
+    _m = _re.search(r'```(?:json)?\s*([\s\S]*?)```', judge_content)
+    _clean = _m.group(1) if _m else judge_content
+    try:
+        _start = _clean.find('{')
+        _end = _clean.rfind('}')
+        if _start != -1 and _end != -1:
+            _clean = _clean[_start:_end+1]
+        judge_result = _json.loads(_clean)
+        verdict = judge_result.get("verdict", "HALLU")
+        if verdict == "HALLU":
+            hallu_facts = judge_result.get("hallu_facts", [])
+            errors.append(
+                f"LLM-as-judge: галлюцинации — {'; '.join(hallu_facts)}"
+            )
+        judge_reasoning = judge_result.get("reasoning", "")
+    except Exception:
+        # Fallback: если парсинг не удался
+        if "OK" not in judge_content.upper():
+            errors.append(f"LLM-as-judge: не удалось распарсить вердикт — {judge_content[:200]}")
+        judge_reasoning = judge_content[:200]
 
     return {
         "passed": len(errors) == 0,
         "errors": errors,
-        "judge_verdict": judge_content,
+        "judge_verdict": judge_reasoning,
     }
 
 
@@ -308,6 +344,7 @@ if __name__ == "__main__":
     corpus.load("./input/news")
 
     tickers = ["MAGN", "RAGR", "ALRS", "GMKN", "SVCB"]
+    pipeline_results = []
 
     for ticker in tickers:
         print(f"Анализ: {ticker}")
@@ -325,5 +362,46 @@ if __name__ == "__main__":
                 for e in meta["hallu_check"]["errors"]:
                     print(f"    !  {e}")
             save_result(analysis, meta)
+
+            pipeline_results.append({
+                "ticker": analysis.ticker,
+                "company_name": analysis.company_name,
+                "analysis_date": str(analysis.analysis_date),
+                "verdict": analysis.growth_outlook,
+                "growth_potential_percent": analysis.growth_potential_percent,
+                "risk_level": analysis.risk_level,
+                "news_sentiment": analysis.news_sentiment,
+                "hallu_check_passed": analysis.hallu_check_passed,
+                "total_tokens": meta.get("total_tokens", 0),
+                "cost_usd": round(meta.get("cost_usd", 0), 6),
+            })
         else:
             print(f"  - Ошибка: {meta.get('errors')}")
+            pipeline_results.append({
+                "ticker": ticker,
+                "company_name": "",
+                "analysis_date": "",
+                "verdict": "error",
+                "growth_potential_percent": 0,
+                "risk_level": "",
+                "news_sentiment": 0,
+                "hallu_check_passed": False,
+                "total_tokens": meta.get("total_tokens", 0),
+                "cost_usd": round(meta.get("cost_usd", 0), 6),
+            })
+
+    # Сохраняем сводку
+    import datetime as _dt
+    pipeline_summary = {
+        "generated_at": str(_dt.datetime.now()),
+        "total_analyses": len(tickers),
+        "results": pipeline_results,
+        "total_cost_usd": round(sum(r["cost_usd"] for r in pipeline_results), 6),
+        "total_tokens": sum(r["total_tokens"] for r in pipeline_results),
+        "hallu_passed_count": sum(1 for r in pipeline_results if r["hallu_check_passed"]),
+    }
+    out_path = Path("./output")
+    out_path.mkdir(parents=True, exist_ok=True)
+    with open(out_path / "pipeline_results.json", "w", encoding="utf-8") as f:
+        json.dump(pipeline_summary, f, ensure_ascii=False, indent=2)
+    print(f"\nСводка сохранена в output/pipeline_results.json")

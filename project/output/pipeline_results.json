@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-06-22 16:32:51.586652",
+  "total_analyses": 5,
+  "results": [
+    {
+      "ticker": "MAGN",
+      "company_name": "ММК",
+      "analysis_date": "2025-04-09",
+      "verdict": "buy",
+      "growth_potential_percent": 10.0,
+      "risk_level": "средний",
+      "news_sentiment": 0.7,
+      "hallu_check_passed": true,
+      "total_tokens": 1554,
+      "cost_usd": 0.001298
+    },
+    {
+      "ticker": "RAGR",
+      "company_name": "Русагро",
+      "analysis_date": "2026-06-22",
+      "verdict": "buy",
+      "growth_potential_percent": 10.0,
+      "risk_level": "средний",
+      "news_sentiment": 0.8,
+      "hallu_check_passed": true,
+      "total_tokens": 1651,
+      "cost_usd": 0.001436
+    },
+    {
+      "ticker": "ALRS",
+      "company_name": "АЛРОСА ао",
+      "analysis_date": "2026-06-10",
+      "verdict": "buy",
+      "growth_potential_percent": 10.0,
+      "risk_level": "средний",
+      "news_sentiment": 0.5,
+      "hallu_check_passed": true,
+      "total_tokens": 1629,
+      "cost_usd": 0.001425
+    },
+    {
+      "ticker": "GMKN",
+      "company_name": "ГМК Норникель",
+      "analysis_date": "2025-04-08",
+      "verdict": "buy",
+      "growth_potential_percent": 10.0,
+      "risk_level": "средний",
+      "news_sentiment": 0.7,
+      "hallu_check_passed": true,
+      "total_tokens": 1680,
+      "cost_usd": 0.001492
+    },
+    {
+      "ticker": "SVCB",
+      "company_name": "Совкомбанк",
+      "analysis_date": "2026-06-22",
+      "verdict": "buy",
+      "growth_potential_percent": 15.0,
+      "risk_level": "средний",
+      "news_sentiment": 0.8,
+      "hallu_check_passed": true,
+      "total_tokens": 1731,
+      "cost_usd": 0.001603
+    }
+  ],
+  "total_cost_usd": 0.007254,
+  "total_tokens": 8245,
+  "hallu_passed_count": 5
+}

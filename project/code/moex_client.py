@@ -50,8 +50,11 @@ def fetch_marketdata(ticker: str) -> Optional[MarketData]:
         f"{MOEX_BASE}/engines/stock/markets/shares/boards/{BOARD}"
         f"/securities/{ticker}.json?iss.meta=off&iss.only=securities,marketdata"
     )
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+    except Exception:
+        return None
     data = resp.json()
 
     # Парсим securities (название компании)
@@ -119,8 +122,11 @@ def fetch_marketdata_by_date(ticker: str, trade_date: str) -> Optional[MarketDat
         f"/securities/{ticker}.json"
         f"?from={trade_date}&till={trade_date}&iss.meta=off&iss.only=history"
     )
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+    except Exception:
+        return None
     data = resp.json()
 
     rows = data.get("history", {}).get("data", [])
